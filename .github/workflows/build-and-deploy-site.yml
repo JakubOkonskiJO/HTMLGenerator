@@ -1,0 +1,78 @@
+name: Build and Deploy Report Site
+
+on:
+  push:
+    paths:
+      - content/submissions/**/*.md
+      - scripts/generate_site.py
+      - docs/index.html
+      - .github/workflows/build-and-deploy-site.yml
+  workflow_dispatch:
+    inputs:
+      content_path:
+        description: Optional markdown file path to render
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Resolve markdown source
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${{ github.event.inputs.content_path || '' }}" ]]; then
+            input_file="${{ github.event.inputs.content_path }}"
+          else
+            input_file="$(find content/submissions -type f -name '*.md' -print0 | xargs -0 -r ls -1t 2>/dev/null | head -n 1 || true)"
+          fi
+
+          if [[ -z "$input_file" || ! -f "$input_file" ]]; then
+            echo "No markdown content file found under content/submissions" >&2
+            exit 1
+          fi
+
+          echo "input_file=$input_file" >> "$GITHUB_OUTPUT"
+
+      - name: Generate static report page
+        run: python scripts/generate_site.py --input "${{ steps.resolve.outputs.input_file }}" --output _site/report.html
+
+      - name: Prepare site root
+        shell: bash
+        run: |
+          cp docs/index.html _site/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
