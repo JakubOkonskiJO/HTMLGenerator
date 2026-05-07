@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Markdown Report Publisher</title>
+    <style>
+      body { font-family: Inter, Segoe UI, Arial, sans-serif; margin: 0; background: #f5f7ff; color: #111827; }
+      main { max-width: 900px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+      section { background: #fff; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08); }
+      h1 { margin-top: 0; }
+      label { display: block; margin-top: .6rem; font-weight: 600; }
+      input[type="text"], input[type="password"], input[type="file"] { width: 100%; padding: .55rem; margin-top: .25rem; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
+      button, .link-button { border: 0; border-radius: 8px; padding: .65rem .95rem; cursor: pointer; font-weight: 700; background: #4f46e5; color: #fff; text-decoration: none; display: inline-block; }
+      .help { color: #4b5563; font-size: .92rem; }
+      .result { margin-top: .8rem; padding: .7rem; background: #eef2ff; border-radius: 8px; }
+      code { background: #eef2ff; padding: .05rem .3rem; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Markdown Report Publisher</h1>
+      <section>
+        <h2>1) Download template</h2>
+        <p>Download, fill in your content, and keep section names <code>Metrics</code> and <code>Text</code>.</p>
+        <button id="download-template">Download markdown template</button>
+      </section>
+
+      <section>
+        <h2>2) Upload completed markdown</h2>
+        <p class="help">The file is committed to this repository via GitHub API and triggers the static-site workflow.</p>
+        <label for="owner">Repository owner</label>
+        <input id="owner" type="text" placeholder="JakubOkonskiJO" />
+
+        <label for="repo">Repository name</label>
+        <input id="repo" type="text" placeholder="HTMLGenerator" />
+
+        <label for="branch">Branch</label>
+        <input id="branch" type="text" placeholder="main" value="main" />
+
+        <label for="token">GitHub Personal Access Token (repo scope)</label>
+        <input id="token" type="password" />
+
+        <label for="path">Target path in repository</label>
+        <input id="path" type="text" value="content/submissions/report.md" />
+
+        <label for="file">Filled markdown file</label>
+        <input id="file" type="file" accept=".md,text/markdown" />
+
+        <div style="margin-top: .9rem;"><button id="upload">Upload and trigger build</button></div>
+        <div id="result" class="result" style="display: none;"></div>
+      </section>
+
+      <section>
+        <h2>3) View generated website</h2>
+        <p>After workflow completion, open <a id="pages-link" href="./report.html">report.html</a> on GitHub Pages.</p>
+      </section>
+    </main>
+
+    <script>
+      const template = `# Monthly Business Update
+
+## Metrics
+- Revenue Growth: 12%
+- Customer Churn: 3.1%
+- NPS: 68
+- New Customers: 240
+
+## Text
+### Highlights
+- Product launch completed on schedule.
+- Response times improved by 25%.
+
+### Risks
+Vendor onboarding remains slower than planned.
+
+### Next Steps
+- Expand onboarding automation.
+- Finalize Q3 campaign assets.
+`;
+
+      const resultEl = document.getElementById('result');
+
+      document.getElementById('download-template').addEventListener('click', () => {
+        const blob = new Blob([template], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'report-template.md';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      async function toBase64(file) {
+        const buffer = await file.arrayBuffer();
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const chunk = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+        }
+        return btoa(binary);
+      }
+
+      document.getElementById('upload').addEventListener('click', async () => {
+        const owner = document.getElementById('owner').value.trim();
+        const repo = document.getElementById('repo').value.trim();
+        const branch = document.getElementById('branch').value.trim() || 'main';
+        const token = document.getElementById('token').value.trim();
+        const path = document.getElementById('path').value.trim() || 'content/submissions/report.md';
+        const file = document.getElementById('file').files[0];
+
+        if (!owner || !repo || !token || !file) {
+          resultEl.style.display = 'block';
+          resultEl.textContent = 'Please provide owner, repo, token, and markdown file.';
+          return;
+        }
+
+        try {
+          const content = await toBase64(file);
+          const api = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, '/')}`;
+          const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28'
+          };
+
+          let sha;
+          const existing = await fetch(`${api}?ref=${encodeURIComponent(branch)}`, { headers });
+          if (existing.ok) {
+            const body = await existing.json();
+            sha = body.sha;
+          }
+
+          const response = await fetch(api, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({
+              message: `Upload markdown content: ${path}`,
+              content,
+              branch,
+              sha
+            })
+          });
+
+          const body = await response.json();
+          if (!response.ok) {
+            throw new Error(body.message || 'Upload failed');
+          }
+
+          const workflowRunsLink = `https://github.com/${owner}/${repo}/actions`;
+          const pagesLink = `https://${owner}.github.io/${repo}/report.html`;
+          document.getElementById('pages-link').href = pagesLink;
+          resultEl.style.display = 'block';
+          resultEl.innerHTML = `Upload successful. Commit: <a href="${body.commit.html_url}" target="_blank" rel="noopener">${body.commit.sha.slice(0, 7)}</a><br />` +
+            `Workflow runs: <a href="${workflowRunsLink}" target="_blank" rel="noopener">GitHub Actions</a><br />` +
+            `Generated site (after workflow finishes): <a href="${pagesLink}" target="_blank" rel="noopener">${pagesLink}</a>`;
+        } catch (error) {
+          resultEl.style.display = 'block';
+          resultEl.textContent = `Upload failed: ${error.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>
