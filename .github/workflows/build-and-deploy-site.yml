@@ -59,11 +59,13 @@ jobs:
         run: python scripts/generate_site.py --input "${{ steps.resolve.outputs.input_file }}" --output docs/report.html
 
       - name: Commit generated report
+        id: publish
         shell: bash
         run: |
           set -euo pipefail
           if git diff --quiet -- docs/report.html; then
             echo "docs/report.html is already up to date"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -72,3 +74,4 @@ jobs:
           git add docs/report.html
           git commit -m "Deploy generated report [skip ci]"
           git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "updated=true" >> "$GITHUB_OUTPUT"
