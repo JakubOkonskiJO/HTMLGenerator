@@ -6,6 +6,9 @@ import pathlib
 import re
 from dataclasses import dataclass
 
+HORIZONTAL_RULE_RE = re.compile(r"^-{3,}$")
+PLAIN_METRIC_RE = re.compile(r"^\s*([A-Za-z0-9][^:]{0,80}):\s*(.+)\s*$")
+
 
 @dataclass
 class Metric:
@@ -50,9 +53,10 @@ def parse_markdown(markdown_text: str):
                     metrics.append(Metric(name, value))
                     continue
 
-            plain_metric = re.match(r"^\s*([^:]+):\s*(.+)\s*$", line)
-            if plain_metric:
+            plain_metric = PLAIN_METRIC_RE.match(line)
+            if plain_metric and "://" not in line:
                 metrics.append(Metric(plain_metric.group(1).strip(), plain_metric.group(2).strip()))
+                continue
         elif current_mode == "text":
             text_lines.append(line)
 
@@ -74,7 +78,7 @@ def render_text_section(lines: list[str]) -> str:
         if not stripped:
             close_list()
             continue
-        if re.match(r"^-{3,}$", stripped):
+        if HORIZONTAL_RULE_RE.match(stripped):
             close_list()
             continue
 
