@@ -16,6 +16,6 @@ This is the third and final paragraph. It's a good place to summarize your main 
 
 ## Key Metrics & KPIs
 
-**Metric/KPI 1:** NPS = 95% - net promotor score
+**Metric/KPI 1:** NPS = 95% - net promoter score
 **Metric/KPI 2:** MTTR = -20% YoY - mean time to resolve
 **Metric/KPI 3:** QoS = 99%
