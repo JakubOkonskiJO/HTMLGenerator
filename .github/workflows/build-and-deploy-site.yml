@@ -44,10 +44,13 @@ jobs:
             input_file="${{ github.event.inputs.content_path }}"
           else
             input_file="$(find content/submissions -type f -name '*.md' -print0 | xargs -0 -r ls -1t 2>/dev/null | head -n 1 || true)"
+            if [[ -z "$input_file" && -f "inputs/input1.md" ]]; then
+              input_file="inputs/input1.md"
+            fi
           fi
 
           if [[ -z "$input_file" || ! -f "$input_file" ]]; then
-            echo "No markdown content file found under content/submissions" >&2
+            echo "No markdown content file found under content/submissions and no fallback input exists at inputs/input1.md" >&2
             exit 1
           fi
 
