@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - content/submissions/**/*.md
+      - inputs/input1.md
       - scripts/generate_site.py
       - docs/index.html
       - .github/workflows/build-and-deploy-site.yml
