@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 HORIZONTAL_RULE_RE = re.compile(r"^-{3,}$")
 MAX_METRIC_NAME_LENGTH = 80
-PLAIN_METRIC_RE = re.compile(rf"^\s*([A-Za-z0-9][^:]{{0,{MAX_METRIC_NAME_LENGTH}}}):\s*(.+)\s*$")
+PLAIN_METRIC_RE = re.compile(rf"^\s*([A-Za-z][^:]{{0,{MAX_METRIC_NAME_LENGTH}}}):\s*(.+)\s*$")
 URL_SCHEME_RE = re.compile(r"^\s*(?:https?|ftp)://", re.IGNORECASE)
 
 
@@ -47,7 +47,7 @@ def parse_markdown(markdown_text: str):
                 metrics.append(Metric(bullet_metric.group(1).strip(), bullet_metric.group(2).strip()))
                 continue
 
-            bold_metric = re.match(r"^\s*\*\*([^*]+)\*\*\s*(.+)\s*$", line)
+            bold_metric = re.match(r"^\s*\*\*([^*]+)\*\*\s*(.*)\s*$", line)
             if bold_metric:
                 name = bold_metric.group(1).strip().rstrip(":")
                 value = bold_metric.group(2).strip()
