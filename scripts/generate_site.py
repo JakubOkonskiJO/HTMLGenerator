@@ -21,7 +21,7 @@ def parse_markdown(markdown_text: str):
         if first_heading:
             title = first_heading.group(1).strip()
 
-    current_mode = None
+    current_mode = "text"
     metrics: list[Metric] = []
     text_lines: list[str] = []
 
@@ -29,7 +29,7 @@ def parse_markdown(markdown_text: str):
         heading = re.match(r"^#{1,6}\s+(.+)$", line.strip())
         if heading:
             heading_text = heading.group(1).strip().lower()
-            if heading_text.startswith("metrics"):
+            if "metric" in heading_text or "kpi" in heading_text:
                 current_mode = "metrics"
                 continue
             if heading_text.startswith("text"):
@@ -37,9 +37,22 @@ def parse_markdown(markdown_text: str):
                 continue
 
         if current_mode == "metrics":
-            item = re.match(r"^\s*[-*]\s+([^:]+):\s*(.+)\s*$", line)
-            if item:
-                metrics.append(Metric(item.group(1).strip(), item.group(2).strip()))
+            bullet_metric = re.match(r"^\s*[-*]\s+([^:]+):\s*(.+)\s*$", line)
+            if bullet_metric:
+                metrics.append(Metric(bullet_metric.group(1).strip(), bullet_metric.group(2).strip()))
+                continue
+
+            bold_metric = re.match(r"^\s*\*\*([^*]+)\*\*\s*(.+)\s*$", line)
+            if bold_metric:
+                name = bold_metric.group(1).strip().rstrip(":")
+                value = bold_metric.group(2).strip()
+                if name and value:
+                    metrics.append(Metric(name, value))
+                    continue
+
+            plain_metric = re.match(r"^\s*([^:]+):\s*(.+)\s*$", line)
+            if plain_metric:
+                metrics.append(Metric(plain_metric.group(1).strip(), plain_metric.group(2).strip()))
         elif current_mode == "text":
             text_lines.append(line)
 
@@ -59,6 +72,9 @@ def render_text_section(lines: list[str]) -> str:
     for line in lines:
         stripped = line.strip()
         if not stripped:
+            close_list()
+            continue
+        if re.match(r"^-{3,}$", stripped):
             close_list()
             continue
 
