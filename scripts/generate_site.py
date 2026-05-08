@@ -7,7 +7,9 @@ import re
 from dataclasses import dataclass
 
 HORIZONTAL_RULE_RE = re.compile(r"^-{3,}$")
-PLAIN_METRIC_RE = re.compile(r"^\s*([A-Za-z0-9][^:]{0,80}):\s*(.+)\s*$")
+MAX_METRIC_NAME_LENGTH = 80
+PLAIN_METRIC_RE = re.compile(rf"^\s*([A-Za-z0-9][^:]{{0,{MAX_METRIC_NAME_LENGTH}}}):\s*(.+)\s*$")
+URL_SCHEME_RE = re.compile(r"^\s*(?:https?|ftp)://", re.IGNORECASE)
 
 
 @dataclass
@@ -54,7 +56,7 @@ def parse_markdown(markdown_text: str):
                     continue
 
             plain_metric = PLAIN_METRIC_RE.match(line)
-            if plain_metric and "://" not in line:
+            if plain_metric and not URL_SCHEME_RE.match(line):
                 metrics.append(Metric(plain_metric.group(1).strip(), plain_metric.group(2).strip()))
                 continue
         elif current_mode == "text":
